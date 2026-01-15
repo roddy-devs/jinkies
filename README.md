@@ -1,19 +1,14 @@
 # 🔍 Jinkies
 
-A production-grade Discord bot for AWS monitoring, logs, alerts, and interactive PR/issue creation.
+A production-grade Discord bot for monitoring, alerts, and interactive PR/issue creation.
 
-Jinkies serves as a **real-time observability and incident-response control plane** for AWS-hosted applications, allowing your team to monitor, triage, and respond to incidents directly from Discord.
+Jinkies serves as a **real-time observability and incident-response control plane** for applications, allowing your team to monitor, triage, and respond to incidents directly from Discord.
+
+**🎉 NEW: Optimized for Raspberry Pi! No AWS required!**
 
 ## ✨ Features
 
-### 📜 Log Management
-- **On-demand log retrieval** from CloudWatch Logs
-- **Real-time log streaming** (tail mode)
-- Advanced filtering by level, time, and service
-- Automatic pagination for Discord message limits
-- Support for multiple log sources (API, CloudFront, etc.)
-
-### 🚨 Alert System
+### 📜 Alert Management
 - Real-time error alerts with full context
 - Persistent alert storage with SQLite
 - Rich embeds with stack traces and logs
@@ -28,14 +23,14 @@ Jinkies serves as a **real-time observability and incident-response control plan
 - Link tracking between alerts and GitHub
 
 ### 💬 Discord Commands
-- `/logs` - Retrieve application logs
-- `/logs-tail` - Stream logs in real-time
-- `/logs-stop` - Stop log streaming
 - `/alerts` - List recent alerts
 - `/alert <id>` - View alert details
 - `/ack <id>` - Acknowledge an alert
 - `/create-pr <id>` - Create PR from alert
 - `/create-issue <id>` - Create issue from alert
+- `/logs` - Retrieve logs (requires CloudWatch)
+- `/logs-tail` - Stream logs (requires CloudWatch)
+- `/logs-stop` - Stop streaming (requires CloudWatch)
 
 ### 🔐 Security
 - Role-based access control
@@ -46,59 +41,56 @@ Jinkies serves as a **real-time observability and incident-response control plan
 
 ## 🏗️ Architecture
 
+### Django Integration (Recommended)
+
 ```
-┌─────────────────┐
-│  Django App     │
-│  (EC2)          │
-└────────┬────────┘
-         │ Logs
+Django App (with jinkies_webhook)
          ↓
-┌─────────────────┐      ┌──────────────┐
-│  CloudWatch     │◄────►│  Jinkies Bot │
-│  Logs           │      │  (Discord)   │
-└─────────────────┘      └──────┬───────┘
-                                │
-         ┌──────────────────────┼──────────────────────┐
-         │                      │                      │
-         ↓                      ↓                      ↓
-┌────────────────┐    ┌─────────────────┐    ┌───────────────┐
-│  Discord       │    │  GitHub API     │    │  Alert Store  │
-│  Slash Cmds    │    │  (PRs/Issues)   │    │  (SQLite)     │
-└────────────────┘    └─────────────────┘    └───────────────┘
+    Alert Handler
+         ↓
+  Local Endpoint: /jinkies/alert/
+         ↓
+  Discord Webhook → Discord Channel
+         ↓
+  Jinkies Bot (on Raspberry Pi) reads from channel
+```
+
+### AWS CloudWatch Integration (Optional)
+
+```
+CloudWatch Logs
+         ↓
+  Jinkies Bot
+         ↓
+Discord Slash Commands
 ```
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### For Raspberry Pi (Recommended)
 
-- Python 3.9+
-- Discord bot with appropriate permissions
-- AWS credentials with CloudWatch access
-- GitHub Personal Access Token or App credentials
+See **[RASPBERRY_PI.md](RASPBERRY_PI.md)** for complete Raspberry Pi setup guide.
 
-### Installation
+Quick install:
+```bash
+git clone https://github.com/roddy-devs/jinkies.git
+cd jinkies
+pip3 install -r requirements-pi.txt
+cp .env.example .env
+nano .env  # Configure Discord and GitHub
+python3 run.py
+```
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/roddy-devs/jinkies.git
-   cd jinkies
-   ```
+### For Standard Linux/Mac
 
-2. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Configure environment**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your credentials
-   ```
-
-4. **Run the bot**
-   ```bash
-   python -m bot.main
-   ```
+```bash
+git clone https://github.com/roddy-devs/jinkies.git
+cd jinkies
+pip install -r requirements.txt
+cp .env.example .env
+nano .env  # Configure all settings
+python run.py
+```
 
 ## ⚙️ Configuration
 

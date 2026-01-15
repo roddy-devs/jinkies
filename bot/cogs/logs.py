@@ -1,5 +1,8 @@
 """
 Discord cog for log-related commands.
+
+NOTE: CloudWatch integration is optional. If boto3 is not installed,
+log commands will be disabled but other bot features will work.
 """
 import discord
 from discord import app_commands
@@ -8,7 +11,15 @@ from typing import Optional
 from datetime import datetime, timezone
 
 from bot.config import config
-from bot.services.cloudwatch import CloudWatchService
+
+# Try to import CloudWatch service
+try:
+    from bot.services.cloudwatch import CloudWatchService
+    CLOUDWATCH_AVAILABLE = True
+except ImportError:
+    CLOUDWATCH_AVAILABLE = False
+    CloudWatchService = None
+
 from bot.utils.discord_helpers import (
     format_logs_for_discord,
     create_log_embed,
@@ -24,7 +35,10 @@ class LogCommands(commands.Cog):
     
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.cloudwatch = CloudWatchService()
+        if CLOUDWATCH_AVAILABLE:
+            self.cloudwatch = CloudWatchService()
+        else:
+            self.cloudwatch = None
         self.active_tails = {}  # Track active tail sessions
     
     @app_commands.command(name="logs", description="Retrieve application logs")
@@ -43,6 +57,18 @@ class LogCommands(commands.Cog):
         since: Optional[int] = 60
     ):
         """Retrieve logs from CloudWatch."""
+        # Check if CloudWatch is available
+        if not CLOUDWATCH_AVAILABLE or self.cloudwatch is None:
+            await interaction.response.send_message(
+                format_error_message(
+                    "CloudWatch integration is not available. "
+                    "This feature requires boto3 to be installed. "
+                    "Use Django webhooks for alerts instead."
+                ),
+                ephemeral=True
+            )
+            return
+        
         # Check permissions
         if not has_required_role(interaction):
             await interaction.response.send_message(
@@ -119,6 +145,17 @@ class LogCommands(commands.Cog):
         duration: Optional[int] = 60
     ):
         """Start tailing logs."""
+        # Check if CloudWatch is available
+        if not CLOUDWATCH_AVAILABLE or self.cloudwatch is None:
+            await interaction.response.send_message(
+                format_error_message(
+                    "CloudWatch integration is not available. "
+                    "Log tailing requires boto3 to be installed."
+                ),
+                ephemeral=True
+            )
+            return
+        
         # Check permissions
         if not has_required_role(interaction):
             await interaction.response.send_message(

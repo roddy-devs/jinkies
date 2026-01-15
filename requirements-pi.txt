@@ -1,0 +1,21 @@
+# Minimal requirements for running Jinkies on Raspberry Pi
+# This file excludes optional dependencies to reduce installation time
+
+# Discord (Required)
+discord.py==2.3.2
+python-dotenv==1.0.0
+
+# GitHub (Required for PR/issue creation)
+PyGithub==2.1.1
+
+# Data handling (Required)
+python-dateutil==2.8.2
+
+# HTTP (Required)
+aiohttp==3.13.3
+
+# Async utilities (Required)
+asyncio==3.4.3
+
+# Note: CloudWatch (boto3) is NOT included as it's not needed for Django integration
+# Note: Flask is NOT included as we use Django webhooks instead

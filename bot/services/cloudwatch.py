@@ -1,8 +1,19 @@
 """
 AWS CloudWatch Logs integration.
 Queries and filters logs from CloudWatch log groups.
+
+NOTE: This module is OPTIONAL. CloudWatch integration is not required
+for basic Jinkies functionality. If you're using Django webhooks and
+don't need CloudWatch, you can skip installing boto3.
 """
-import boto3
+try:
+    import boto3
+    CLOUDWATCH_AVAILABLE = True
+except ImportError:
+    CLOUDWATCH_AVAILABLE = False
+    print("Warning: boto3 not installed. CloudWatch integration disabled.")
+    print("Install boto3 to enable CloudWatch: pip install boto3")
+
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 from bot.config import config
@@ -14,6 +25,12 @@ class CloudWatchService:
     
     def __init__(self):
         """Initialize CloudWatch client."""
+        if not CLOUDWATCH_AVAILABLE:
+            raise ImportError(
+                "CloudWatch integration requires boto3. "
+                "Install it with: pip install boto3"
+            )
+        
         session_params = {"region_name": config.AWS_REGION}
         
         if config.AWS_ACCESS_KEY_ID and config.AWS_SECRET_ACCESS_KEY:

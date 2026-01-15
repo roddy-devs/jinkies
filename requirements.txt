@@ -2,8 +2,9 @@
 discord.py==2.3.2
 python-dotenv==1.0.0
 
-# AWS
-boto3==1.34.34
+# AWS (Optional - only needed if using CloudWatch Logs)
+# Uncomment if you want CloudWatch integration:
+# boto3==1.34.34
 
 # GitHub
 PyGithub==2.1.1
@@ -17,5 +18,6 @@ aiohttp==3.13.3
 # Async utilities
 asyncio==3.4.3
 
-# Webhook server
-Flask==3.0.0
+# Django webhook integration (Optional - only if using Django app)
+# Uncomment if integrating with Django:
+# Django>=3.2,<5.0

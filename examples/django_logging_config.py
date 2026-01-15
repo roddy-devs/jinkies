@@ -113,12 +113,6 @@ LOGGING = {
             "class": "logging.StreamHandler",
             "formatter": "verbose",
         },
-        "cloudwatch": {
-            "class": "watchtower.CloudWatchLogHandler",
-            "log_group": "/aws/ec2/django-api",
-            "stream_name": "{strftime:%Y-%m-%d}-{hostname}",
-            "formatter": "json",
-        },
         "jinkies": {
             # Update this path to match your project structure
             # For example: "myproject.logging_handlers.JinkiesAlertHandler"
@@ -127,22 +121,25 @@ LOGGING = {
         },
     },
     "root": {
-        "handlers": ["console", "cloudwatch", "jinkies"],
+        "handlers": ["console", "jinkies"],
         "level": "INFO",
     },
     "loggers": {
         "django": {
-            "handlers": ["console", "cloudwatch", "jinkies"],
+            "handlers": ["console", "jinkies"],
             "level": "INFO",
             "propagate": False,
         },
         "django.request": {
-            "handlers": ["console", "cloudwatch", "jinkies"],
+            "handlers": ["console", "jinkies"],
             "level": "ERROR",
             "propagate": False,
         },
     },
 }
+
+
+# Note: CloudWatch integration removed - not needed with Django webhooks!
 
 
 # Middleware to add request context to logs
