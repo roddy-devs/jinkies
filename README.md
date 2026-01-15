@@ -1,426 +1,287 @@
-# 🔍 Jinkies
+# 🔍 Jinkies - Raspberry Pi Discord Bot
 
-A production-grade Discord bot for monitoring, alerts, and interactive PR/issue creation.
+A production-grade Discord bot for Raspberry Pi that monitors your applications, manages alerts, and creates GitHub PRs/issues automatically.
 
-Jinkies serves as a **real-time observability and incident-response control plane** for applications, allowing your team to monitor, triage, and respond to incidents directly from Discord.
-
-**🎉 NEW: Optimized for Raspberry Pi! No AWS required!**
+**Built specifically for Raspberry Pi 3B+, 4, and 5.**
 
 ## ✨ Features
 
-### 📜 Alert Management
-- Real-time error alerts with full context
-- Persistent alert storage with SQLite
-- Rich embeds with stack traces and logs
-- Alert acknowledgment tracking
-- Automatic alert deduplication
+- 🚨 **Real-time Alerts** - Get instant notifications in Discord when errors occur
+- 📋 **Alert Management** - View, acknowledge, and track all alerts
+- 🔧 **GitHub Integration** - Create PRs and issues directly from Discord
+- �� **Secure** - Role-based access control for Discord commands
+- 💾 **Persistent Storage** - SQLite database for all alerts
+- 🐍 **Django Integration** - Works seamlessly with Django applications
 
-### 🔄 GitHub Integration
-- **Interactive PR creation** from alerts
-- **Issue creation** with error context
-- Auto-generated PR/issue descriptions
-- Branch creation and draft PR workflow
-- Link tracking between alerts and GitHub
+## 💬 Discord Commands
 
-### 💬 Discord Commands
 - `/alerts` - List recent alerts
-- `/alert <id>` - View alert details
+- `/alert <id>` - View detailed alert information
 - `/ack <id>` - Acknowledge an alert
-- `/create-pr <id>` - Create PR from alert
-- `/create-issue <id>` - Create issue from alert
-- `/logs` - Retrieve logs (requires CloudWatch)
-- `/logs-tail` - Stream logs (requires CloudWatch)
-- `/logs-stop` - Stop streaming (requires CloudWatch)
+- `/create-pr <id>` - Create a GitHub PR from an alert
+- `/create-issue <id>` - Create a GitHub issue from an alert
 
-### 🔐 Security
-- Role-based access control
-- Environment separation
-- Rate limiting and message length protection
-- Graceful error handling
-- Secure credential management
+## 🚀 One-Command Setup
+
+Run this single command to set up everything:
+
+```bash
+git clone https://github.com/roddy-devs/jinkies.git
+cd jinkies
+./setup-pi.sh
+```
+
+That's it! The script will:
+1. ✅ Install all dependencies
+2. ✅ Create virtual environment
+3. ✅ Guide you through Discord/GitHub configuration
+4. ✅ Set up systemd service for auto-start
+5. ✅ Start the bot
+
+## 📋 Prerequisites
+
+Before running `setup-pi.sh`, you need:
+
+### 1. Discord Bot Token
+
+1. Go to https://discord.com/developers/applications
+2. Click "New Application" → Name it "Jinkies"
+3. Go to "Bot" tab → Click "Add Bot"
+4. Enable these intents:
+   - Presence Intent
+   - Server Members Intent
+   - Message Content Intent
+5. Copy the bot token
+
+### 2. Discord Channel IDs
+
+1. Enable Developer Mode in Discord (Settings → Advanced → Developer Mode)
+2. Right-click on your alert channel → Copy ID
+3. Right-click on your log channel → Copy ID (can be the same)
+
+### 3. GitHub Token
+
+1. Go to https://github.com/settings/tokens
+2. Click "Generate new token (classic)"
+3. Select `repo` scope
+4. Copy the token
+
+### 4. Invite Bot to Discord Server
+
+1. In Discord Developer Portal, go to OAuth2 → URL Generator
+2. Select scopes: `bot`, `applications.commands`
+3. Select permissions:
+   - Send Messages
+   - Embed Links
+   - Use Slash Commands
+4. Copy the URL and open in browser
+5. Select your server and authorize
 
 ## 🏗️ Architecture
 
-### Django Integration (Recommended)
-
 ```
-Django App (with jinkies_webhook)
+Django App (your application)
          ↓
-    Alert Handler
+    Alert Handler (in your Django app)
          ↓
-  Local Endpoint: /jinkies/alert/
+  Webhook Endpoint: /jinkies/alert/
          ↓
-  Discord Webhook → Discord Channel
+  Discord Webhook
          ↓
-  Jinkies Bot (on Raspberry Pi) reads from channel
+  Jinkies Bot (Raspberry Pi) → Discord Channel
 ```
 
-### AWS CloudWatch Integration (Optional)
+## 🔧 Django Integration
 
-```
-CloudWatch Logs
-         ↓
-  Jinkies Bot
-         ↓
-Discord Slash Commands
-```
+### Step 1: Copy Webhook App
 
-## 🚀 Quick Start
-
-### For Raspberry Pi (Recommended)
-
-See **[RASPBERRY_PI.md](RASPBERRY_PI.md)** for complete Raspberry Pi setup guide.
-
-Quick install:
 ```bash
-git clone https://github.com/roddy-devs/jinkies.git
-cd jinkies
-pip3 install -r requirements-pi.txt
-cp .env.example .env
-nano .env  # Configure Discord and GitHub
+cp -r django_webhook/jinkies_webhook /path/to/your/django/project/
+```
+
+### Step 2: Update Django Settings
+
+Add to `INSTALLED_APPS`:
+```python
+INSTALLED_APPS = [
+    # ... your other apps
+    'jinkies_webhook',
+]
+```
+
+Add to `urls.py`:
+```python
+from django.urls import path, include
+
+urlpatterns = [
+    # ... your other URLs
+    path('jinkies/', include('jinkies_webhook.urls')),
+]
+```
+
+### Step 3: Configure Django Logging
+
+See `examples/django_logging_config.py` for the complete logging handler.
+
+Quick version:
+```python
+# In your Django settings.py
+JINKIES_WEBHOOK_URL = "http://localhost:8000/jinkies/alert/"
+
+# Add JinkiesAlertHandler to your logging configuration
+```
+
+### Step 4: Create Discord Webhook
+
+1. In Discord channel settings → Integrations
+2. Create Webhook
+3. Copy webhook URL
+4. Set as environment variable: `DISCORD_WEBHOOK_URL`
+
+### Step 5: Test
+
+```bash
+curl -X POST http://localhost:8000/jinkies/alert/ \
+  -H "Content-Type: application/json" \
+  -d '{"service_name": "test", "exception_type": "TestError", "error_message": "Test", "severity": "ERROR"}'
+```
+
+## 🔌 SSH Tunnel (Optional)
+
+If your Django app is on a remote server:
+
+```bash
+# On Raspberry Pi, create tunnel to Django server
+ssh -N -L 8080:localhost:8000 user@django-server
+
+# Or use autossh for persistent connection
+sudo apt install autossh
+autossh -M 0 -N -L 8080:localhost:8000 user@django-server
+```
+
+Then set `JINKIES_WEBHOOK_URL=http://localhost:8080/jinkies/alert/` in Django.
+
+## 🛠️ Managing the Bot
+
+### View Status
+```bash
+sudo systemctl status jinkies
+```
+
+### View Logs
+```bash
+sudo journalctl -u jinkies -f
+```
+
+### Restart Bot
+```bash
+sudo systemctl restart jinkies
+```
+
+### Stop Bot
+```bash
+sudo systemctl stop jinkies
+```
+
+### Update Bot
+```bash
+cd ~/jinkies
+git pull
+source venv/bin/activate
+pip install -r requirements-pi.txt
+sudo systemctl restart jinkies
+```
+
+## 🔧 Manual Configuration
+
+If you prefer to configure manually instead of using `setup-pi.sh`:
+
+1. Install dependencies:
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate
+   pip install -r requirements-pi.txt
+   ```
+
+2. Copy and edit configuration:
+   ```bash
+   cp .env.example .env
+   nano .env
+   ```
+
+3. Configure these variables:
+   - `DISCORD_BOT_TOKEN` - Your Discord bot token
+   - `DISCORD_ALERT_CHANNEL_ID` - Channel ID for alerts
+   - `DISCORD_LOG_CHANNEL_ID` - Channel ID for logs
+   - `GITHUB_PRIVATE_KEY` - Your GitHub token
+   - `GITHUB_REPO_OWNER` - Your GitHub username
+   - `GITHUB_REPO_NAME` - Your repository name
+
+4. Run the bot:
+   ```bash
+   python3 run.py
+   ```
+
+## 📊 System Requirements
+
+- **Raspberry Pi 3B+ or newer** (1GB+ RAM)
+- **Raspberry Pi OS** (Bullseye or newer)
+- **Python 3.9+**
+- **~500MB disk space**
+- **Internet connection**
+
+## 💰 Cost
+
+- **Raspberry Pi 4 (2GB)**: $45 one-time
+- **Power consumption**: ~$1/month
+- **Total ongoing cost**: **$1/month**
+
+Compare to AWS: $15-70/month in CloudWatch + EC2 costs!
+
+## 🆘 Troubleshooting
+
+### Bot Won't Start
+
+Check logs:
+```bash
+sudo journalctl -u jinkies -n 50
+```
+
+Or run manually to see errors:
+```bash
+cd ~/jinkies
+source venv/bin/activate
 python3 run.py
 ```
 
-### For Standard Linux/Mac
+### Commands Not Showing in Discord
 
+The bot needs to sync commands on first start. Wait 1-2 minutes after starting, then restart Discord.
+
+### "Permission Denied" Errors
+
+Make sure your Discord role is listed in `DISCORD_ALLOWED_ROLES` in `.env`
+
+### Out of Memory
+
+Increase swap:
 ```bash
-git clone https://github.com/roddy-devs/jinkies.git
-cd jinkies
-pip install -r requirements.txt
-cp .env.example .env
-nano .env  # Configure all settings
-python run.py
+sudo dphys-swapfile swapoff
+sudo nano /etc/dphys-swapfile  # Set CONF_SWAPSIZE=2048
+sudo dphys-swapfile setup
+sudo dphys-swapfile swapon
 ```
 
-## ⚙️ Configuration
+## 📚 More Information
 
-### Environment Variables
+- `RASPBERRY_PI.md` - Detailed Raspberry Pi setup guide
+- `django_webhook/README.md` - Django integration details
+- `examples/django_logging_config.py` - Logging configuration example
 
-Create a `.env` file with the following variables:
+## 📝 License
 
-#### Discord Configuration
-```bash
-DISCORD_BOT_TOKEN=your_bot_token
-DISCORD_ALERT_CHANNEL_ID=123456789012345678
-DISCORD_LOG_CHANNEL_ID=123456789012345678
-DISCORD_ALLOWED_ROLES=Admin,DevOps,Engineer
-```
+MIT License - See LICENSE file
 
-#### GitHub Configuration
-```bash
-GITHUB_PRIVATE_KEY=ghp_your_personal_access_token
-GITHUB_REPO_OWNER=your-username
-GITHUB_REPO_NAME=your-repo
-DEFAULT_BASE_BRANCH=develop
-```
+## 🙏 Support
 
-#### AWS Configuration
-```bash
-AWS_REGION=us-east-1
-AWS_ACCESS_KEY_ID=your_access_key
-AWS_SECRET_ACCESS_KEY=your_secret_key
-CLOUDWATCH_LOG_GROUP_API=/aws/ec2/django-api
-CLOUDWATCH_LOG_GROUP_CLOUDFRONT=/aws/cloudfront/access-logs
-```
-
-#### Application Settings
-```bash
-ENVIRONMENT_NAME=production
-LOG_LEVEL=INFO
-MAX_LOG_LINES=50
-LOG_TAIL_INTERVAL=10
-ALERT_RETENTION_DAYS=30
-```
-
-### Discord Bot Setup
-
-1. **Create Discord Application**
-   - Go to [Discord Developer Portal](https://discord.com/developers/applications)
-   - Create a new application
-   - Go to "Bot" section and create a bot
-   - Copy the bot token
-
-2. **Configure Bot Permissions**
-   Required permissions:
-   - Send Messages
-   - Send Messages in Threads
-   - Embed Links
-   - Attach Files
-   - Read Message History
-   - Use Slash Commands
-
-3. **Invite Bot to Server**
-   Generate invite URL with required permissions and add to your server.
-
-4. **Enable Slash Commands**
-   - Go to "OAuth2" → "URL Generator"
-   - Select `bot` and `applications.commands` scopes
-   - Select required permissions
-
-### AWS IAM Permissions
-
-The bot requires the following IAM permissions:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "logs:DescribeLogGroups",
-        "logs:DescribeLogStreams",
-        "logs:FilterLogEvents",
-        "logs:GetLogEvents"
-      ],
-      "Resource": [
-        "arn:aws:logs:*:*:log-group:/aws/ec2/*",
-        "arn:aws:logs:*:*:log-group:/aws/cloudfront/*"
-      ]
-    }
-  ]
-}
-```
-
-### GitHub Access Token
-
-Create a Personal Access Token with the following scopes:
-- `repo` (Full control of private repositories)
-- `workflow` (Update GitHub Action workflows)
-
-Or use a GitHub App with:
-- Repository permissions: Contents (Read & Write), Pull Requests (Read & Write), Issues (Read & Write)
-
-## 📖 Usage Guide
-
-### Viewing Logs
-
-**Basic log retrieval:**
-```
-/logs service:api
-```
-
-**Filter by log level:**
-```
-/logs service:api level:ERROR
-```
-
-**Custom time range:**
-```
-/logs service:api since:30 limit:100
-```
-
-**Stream logs in real-time:**
-```
-/logs-tail service:api level:ERROR duration:120
-```
-
-**Stop streaming:**
-```
-/logs-stop service:api
-```
-
-### Managing Alerts
-
-**List recent alerts:**
-```
-/alerts limit:10
-```
-
-**View unacknowledged alerts only:**
-```
-/alerts unacknowledged_only:True
-```
-
-**View specific alert:**
-```
-/alert alert_id:a1b2c3d4
-```
-
-**Acknowledge an alert:**
-```
-/ack alert_id:a1b2c3d4
-```
-
-### Creating PRs and Issues
-
-**Create a PR from an alert:**
-```
-/create-pr alert_id:a1b2c3d4 base_branch:develop fix_notes:"Add error handling for duplicate keys"
-```
-
-**Create an issue from an alert:**
-```
-/create-issue alert_id:a1b2c3d4
-```
-
-## 🔗 Django Integration
-
-To integrate Jinkies with your Django application, add the logging configuration from `examples/django_logging_config.py` to your Django settings.
-
-### Quick Integration Steps:
-
-1. **Install required packages:**
-   ```bash
-   pip install watchtower python-json-logger
-   ```
-
-2. **Add logging configuration to `settings.py`:**
-   ```python
-   from examples.django_logging_config import LOGGING, JinkiesAlertHandler
-   ```
-
-3. **Add middleware to `MIDDLEWARE`:**
-   ```python
-   MIDDLEWARE = [
-       # ... other middleware
-       'path.to.RequestLoggingMiddleware',
-   ]
-   ```
-
-4. **Set webhook URL:**
-   ```bash
-   export JINKIES_WEBHOOK_URL=http://your-jinkies-instance:8080/webhook/alert
-   ```
-
-5. **Run the webhook server:**
-   ```bash
-   python -m bot.webhook
-   ```
-
-## 🧪 Testing
-
-The bot includes comprehensive error handling and logging. To test:
-
-1. **Test CloudWatch connection:**
-   ```python
-   from bot.services.cloudwatch import CloudWatchService
-   cw = CloudWatchService()
-   print(cw.test_connection("/aws/ec2/django-api"))
-   ```
-
-2. **Test GitHub connection:**
-   ```python
-   from bot.services.github_service import GitHubService
-   gh = GitHubService()
-   print(gh.test_connection())
-   ```
-
-3. **Create a test alert:**
-   ```python
-   from bot.models.alert import Alert
-   from bot.services.alert_store import AlertStore
-   
-   alert = Alert(
-       service_name="api",
-       exception_type="TestError",
-       error_message="Test alert",
-       environment="testing"
-   )
-   
-   store = AlertStore()
-   store.save_alert(alert)
-   ```
-
-## 🚢 Deployment
-
-### Using Docker (Recommended)
-
-Create a `Dockerfile`:
-```dockerfile
-FROM python:3.11-slim
-
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-
-COPY . .
-
-CMD ["python", "-m", "bot.main"]
-```
-
-Build and run:
-```bash
-docker build -t jinkies .
-docker run -d --env-file .env jinkies
-```
-
-### Using systemd
-
-Create `/etc/systemd/system/jinkies.service`:
-```ini
-[Unit]
-Description=Jinkies Discord Bot
-After=network.target
-
-[Service]
-Type=simple
-User=jinkies
-WorkingDirectory=/opt/jinkies
-EnvironmentFile=/opt/jinkies/.env
-ExecStart=/usr/bin/python3 -m bot.main
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable and start:
-```bash
-sudo systemctl enable jinkies
-sudo systemctl start jinkies
-```
-
-## 📊 Monitoring & Maintenance
-
-### Log Rotation
-
-The bot creates a `bot.log` file. Configure log rotation with logrotate:
-
-```bash
-/opt/jinkies/bot.log {
-    daily
-    rotate 7
-    compress
-    delaycompress
-    notifempty
-    create 644 jinkies jinkies
-}
-```
-
-### Alert Cleanup
-
-Alerts older than `ALERT_RETENTION_DAYS` can be cleaned up manually:
-
-```python
-from bot.services.alert_store import AlertStore
-store = AlertStore()
-deleted = store.cleanup_old_alerts(days=30)
-print(f"Deleted {deleted} old alerts")
-```
-
-### Database Backup
-
-Backup the alerts database regularly:
-```bash
-cp alerts.db alerts.db.backup.$(date +%Y%m%d)
-```
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
-## 🆘 Support
-
-For issues, questions, or feature requests, please create an issue on GitHub.
-
-## 🙏 Acknowledgments
-
-Built with:
-- [discord.py](https://github.com/Rapptz/discord.py) - Discord API wrapper
-- [boto3](https://github.com/boto/boto3) - AWS SDK for Python
-- [PyGithub](https://github.com/PyGithub/PyGithub) - GitHub API wrapper
+For issues or questions, create an issue on GitHub.
