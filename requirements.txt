@@ -12,7 +12,7 @@ PyGithub==2.1.1
 python-dateutil==2.8.2
 
 # HTTP
-aiohttp==3.9.1
+aiohttp==3.13.3
 
 # Async utilities
 asyncio==3.4.3
