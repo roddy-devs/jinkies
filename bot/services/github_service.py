@@ -11,9 +11,14 @@ class GitHubService:
     """Service for GitHub API interactions."""
     
     def __init__(self):
-        """Initialize GitHub client."""
+        """
+        Initialize GitHub client.
+        
+        Note: In production, use GitHub App authentication instead of personal
+        access tokens for better security, higher rate limits, and granular permissions.
+        See: https://docs.github.com/en/apps/creating-github-apps
+        """
         # Use personal access token (stored in GITHUB_PRIVATE_KEY for simplicity)
-        # In production, use GitHub App authentication
         self.client = Github(config.GITHUB_PRIVATE_KEY)
         self.repo = self.client.get_repo(f"{config.GITHUB_REPO_OWNER}/{config.GITHUB_REPO_NAME}")
     

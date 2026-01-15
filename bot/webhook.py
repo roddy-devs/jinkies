@@ -7,6 +7,7 @@ import discord
 from discord import Webhook
 import aiohttp
 from datetime import datetime
+import asyncio
 
 from bot.config import config
 from bot.models.alert import Alert
@@ -24,7 +25,7 @@ def health():
 
 
 @app.route("/webhook/alert", methods=["POST"])
-async def receive_alert():
+def receive_alert():
     """
     Receive alert webhook and post to Discord.
     
@@ -63,8 +64,12 @@ async def receive_alert():
         # Save alert to store
         alert_store.save_alert(alert)
         
-        # Post to Discord
-        await post_alert_to_discord(alert)
+        # Post to Discord (run in background)
+        # Note: In production, use a task queue like Celery for this
+        try:
+            asyncio.run(post_alert_to_discord(alert))
+        except Exception as e:
+            print(f"Error posting to Discord: {e}")
         
         return jsonify({
             "status": "success",
@@ -113,7 +118,7 @@ def get_webhook_url(channel_id: int) -> str:
 
 
 @app.route("/webhook/sns", methods=["POST"])
-async def receive_sns():
+def receive_sns():
     """
     Receive AWS SNS notifications.
     Can be used for CloudWatch Alarms or custom notifications.
@@ -142,7 +147,12 @@ async def receive_sns():
             )
             
             alert_store.save_alert(alert)
-            await post_alert_to_discord(alert)
+            
+            # Post to Discord (run in background)
+            try:
+                asyncio.run(post_alert_to_discord(alert))
+            except Exception as e:
+                print(f"Error posting to Discord: {e}")
         
         return jsonify({"status": "success"}), 200
     

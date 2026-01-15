@@ -5,7 +5,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from bot.config import config
 from bot.services.cloudwatch import CloudWatchService
@@ -218,7 +218,14 @@ class LogCommands(commands.Cog):
                 if logs:
                     # Update last seen timestamp
                     last_log = logs[-1]
-                    session_data["last_timestamp"] = int(datetime.fromisoformat(last_log.timestamp).timestamp() * 1000)
+                    try:
+                        # Parse timestamp and convert to milliseconds
+                        log_timestamp = datetime.fromisoformat(last_log.timestamp.replace('Z', '+00:00'))
+                        session_data["last_timestamp"] = int(log_timestamp.timestamp() * 1000)
+                    except (ValueError, AttributeError) as e:
+                        print(f"Error parsing log timestamp: {e}")
+                        # Use current time as fallback
+                        session_data["last_timestamp"] = int(datetime.now(timezone.utc).timestamp() * 1000)
                     
                     # Send logs to channel
                     channel = self.bot.get_channel(session_data["channel_id"])

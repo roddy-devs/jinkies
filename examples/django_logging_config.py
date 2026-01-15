@@ -120,7 +120,9 @@ LOGGING = {
             "formatter": "json",
         },
         "jinkies": {
-            "class": "path.to.JinkiesAlertHandler",  # Update with actual path
+            # Update this path to match your project structure
+            # For example: "myproject.logging_handlers.JinkiesAlertHandler"
+            "class": "myproject.logging_handlers.JinkiesAlertHandler",
             "level": "ERROR",
         },
     },
