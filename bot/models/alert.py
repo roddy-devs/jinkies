@@ -2,7 +2,7 @@
 Data models for alerts and error tracking.
 """
 from dataclasses import dataclass, field, asdict
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 import uuid
 import json
@@ -19,7 +19,7 @@ class Alert:
     stack_trace: str = ""
     related_logs: List[str] = field(default_factory=list)
     request_path: Optional[str] = None
-    timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     environment: str = ""
     instance_id: Optional[str] = None
     commit_sha: Optional[str] = None

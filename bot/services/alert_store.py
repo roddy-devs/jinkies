@@ -5,7 +5,7 @@ Stores alerts in a SQLite database for persistence and querying.
 import sqlite3
 import json
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from bot.models.alert import Alert
@@ -164,7 +164,7 @@ class AlertStore:
                     acknowledged_by = ?,
                     acknowledged_at = ?
                 WHERE alert_id = ?
-            """, (acknowledged_by, datetime.utcnow().isoformat(), alert_id))
+            """, (acknowledged_by, datetime.now(timezone.utc).isoformat(), alert_id))
             
             conn.commit()
             conn.close()
@@ -207,7 +207,7 @@ class AlertStore:
     def cleanup_old_alerts(self, days: int = 30) -> int:
         """Delete alerts older than specified days."""
         try:
-            cutoff_date = (datetime.utcnow() - timedelta(days=days)).isoformat()
+            cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
             
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
