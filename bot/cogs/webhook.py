@@ -58,7 +58,7 @@ class WebhookListener(commands.Cog):
         try:
             data = await request.json()
             
-            # Create alert object
+            # Create alert object (only use fields that Alert model accepts)
             alert = Alert(
                 service_name=data.get('service_name', 'unknown'),
                 exception_type=data.get('exception_type', 'UnknownError'),
@@ -66,10 +66,9 @@ class WebhookListener(commands.Cog):
                 severity=data.get('severity', 'ERROR'),
                 environment=data.get('environment', config.ENVIRONMENT_NAME),
                 request_path=data.get('request_path'),
-                stack_trace=data.get('stack_trace'),
+                stack_trace=data.get('stack_trace', ''),
                 instance_id=data.get('instance_id'),
                 commit_sha=data.get('commit_sha'),
-                user_id=data.get('user_id'),
                 related_logs=data.get('related_logs', []),
                 additional_context=data.get('additional_context', {})
             )
