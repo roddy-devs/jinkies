@@ -55,6 +55,7 @@ Output a structured markdown document that Copilot can use to implement the fix.
 - **Message**: {alert.error_message}
 - **Environment**: {alert.environment}
 - **Timestamp**: {alert.timestamp}
+- **Django Alert**: {alert.django_alert_id}
 
 ## Stack Trace
 ```
@@ -63,10 +64,11 @@ Output a structured markdown document that Copilot can use to implement the fix.
 
 ## Request Context
 - **Path**: {alert.request_path or 'N/A'}
-- **Instance**: {alert.instance_id or 'N/A'}
 
 ## Additional Context
+```json
 {json.dumps(alert.additional_context, indent=2) if alert.additional_context else 'None'}
+```
 
 Generate a comprehensive fix prompt with:
 1. Root cause analysis
