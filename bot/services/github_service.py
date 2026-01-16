@@ -5,6 +5,9 @@ from typing import Optional, Dict, Any
 from github import Github, GithubException
 from bot.config import config
 from bot.models.alert import Alert
+import logging
+
+logger = logging.getLogger("jinkies.github")
 
 
 class GitHubService:
@@ -79,7 +82,7 @@ class GitHubService:
             return pr.html_url
         
         except Exception as e:
-            print(f"Error creating PR: {e}")
+            logger.error(f"Error creating PR: {e}", exc_info=True)
             return None
     
     def create_issue_from_alert(self, alert: Alert) -> Optional[str]:
@@ -114,7 +117,7 @@ class GitHubService:
             return issue.html_url
         
         except Exception as e:
-            print(f"Error creating issue: {e}")
+            logger.error(f"Error creating issue: {e}", exc_info=True)
             return None
     
     def _generate_pr_title(self, alert: Alert) -> str:
@@ -237,5 +240,5 @@ The application encountered an unhandled exception.
             self.repo.get_branches()
             return True
         except Exception as e:
-            print(f"GitHub connection test failed: {e}")
+            logger.error(f"GitHub connection test failed: {e}", exc_info=True)
             return False
