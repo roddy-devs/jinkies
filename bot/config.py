@@ -26,6 +26,9 @@ class BotConfig:
     GITHUB_REPO_NAME: str = os.getenv("GITHUB_REPO_NAME", "")
     DEFAULT_BASE_BRANCH: str = os.getenv("DEFAULT_BASE_BRANCH", "develop")
     
+    # OpenAI (Optional - for AI-generated fix prompts)
+    OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
+    
     # AWS
     AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")
     AWS_ACCESS_KEY_ID: Optional[str] = os.getenv("AWS_ACCESS_KEY_ID")
