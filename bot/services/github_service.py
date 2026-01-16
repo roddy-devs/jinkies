@@ -57,16 +57,42 @@ class GitHubService:
                     ref=f"refs/heads/{branch_name}",
                     sha=base_ref.object.sha
                 )
+                
+                # Create an initial commit on the branch with PR details
+                readme_content = f"""# Fix for Alert {alert.get_short_id()}
+
+## Error Details
+- **Service**: {alert.service_name}
+- **Exception**: {alert.exception_type}
+- **Message**: {alert.error_message}
+
+## TODO
+- [ ] Identify root cause
+- [ ] Implement fix
+- [ ] Add tests
+- [ ] Update documentation
+
+See PR description for full details.
+"""
+                self.repo.create_file(
+                    path=f".github/alerts/alert-{alert.get_short_id()}.md",
+                    message=f"Initialize fix branch for alert {alert.get_short_id()}",
+                    content=readme_content,
+                    branch=branch_name
+                )
+                logger.info(f"Created branch {branch_name} with initial commit")
+                
             except GithubException as e:
                 if e.status != 422:  # Branch already exists
                     raise
+                logger.warning(f"Branch {branch_name} already exists")
             
-            # Create PR as draft
+            # Create PR as draft (head branch -> base branch)
             pr = self.repo.create_pull(
                 title=title,
                 body=body,
-                base=base,
-                head=branch_name,
+                head=branch_name,  # The branch with changes
+                base=base,  # Target branch (develop)
                 draft=True
             )
             
