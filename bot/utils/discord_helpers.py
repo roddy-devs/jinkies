@@ -36,17 +36,11 @@ def create_alert_embed(alert: Alert) -> discord.Embed:
     
     # Add fields
     embed.add_field(name="Alert ID", value=f"`{alert.get_short_id()}`", inline=True)
+    embed.add_field(name="Django ID", value=f"`{alert.django_alert_id[:8]}`", inline=True)
     embed.add_field(name="Severity", value=alert.severity, inline=True)
-    embed.add_field(name="Service", value=alert.service_name, inline=True)
     
     if alert.request_path:
         embed.add_field(name="Endpoint", value=f"`{alert.request_path}`", inline=False)
-    
-    if alert.instance_id:
-        embed.add_field(name="Instance", value=alert.instance_id, inline=True)
-    
-    if alert.commit_sha:
-        embed.add_field(name="Commit", value=f"`{alert.commit_sha[:8]}`", inline=True)
     
     # Add stack trace (trimmed)
     if alert.stack_trace:
@@ -54,13 +48,6 @@ def create_alert_embed(alert: Alert) -> discord.Embed:
         if len(stack_preview) > 1000:
             stack_preview = stack_preview[:1000] + "..."
         embed.add_field(name="Stack Trace", value=f"```\n{stack_preview}\n```", inline=False)
-    
-    # Add recent logs
-    if alert.related_logs:
-        logs_preview = "\n".join(alert.get_trimmed_logs(3))
-        if len(logs_preview) > 1000:
-            logs_preview = logs_preview[:1000] + "..."
-        embed.add_field(name="Recent Logs", value=f"```\n{logs_preview}\n```", inline=False)
     
     # Add status indicators
     if alert.acknowledged:
@@ -76,7 +63,10 @@ def create_alert_embed(alert: Alert) -> discord.Embed:
     if alert.github_issue_url:
         embed.add_field(name="GitHub Issue", value=alert.github_issue_url, inline=False)
     
-    embed.set_footer(text=f"Alert ID: {alert.alert_id}")
+    # Link to Django admin
+    embed.add_field(name="View in Django", value=alert.get_django_url(), inline=False)
+    
+    embed.set_footer(text=f"Jinkies ID: {alert.alert_id} | Django ID: {alert.django_alert_id}")
     
     return embed
 
