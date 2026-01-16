@@ -53,6 +53,16 @@ class GitHubService:
             # Create branch (from base branch)
             try:
                 base_ref = self.repo.get_git_ref(f"heads/{base}")
+                
+                # Check if branch already exists and delete it
+                try:
+                    existing_ref = self.repo.get_git_ref(f"heads/{branch_name}")
+                    existing_ref.delete()
+                    logger.info(f"Deleted existing branch {branch_name}")
+                except GithubException:
+                    pass  # Branch doesn't exist, that's fine
+                
+                # Create new branch
                 self.repo.create_git_ref(
                     ref=f"refs/heads/{branch_name}",
                     sha=base_ref.object.sha
@@ -83,9 +93,8 @@ See PR description for full details.
                 logger.info(f"Created branch {branch_name} with initial commit")
                 
             except GithubException as e:
-                if e.status != 422:  # Branch already exists
-                    raise
-                logger.warning(f"Branch {branch_name} already exists")
+                logger.error(f"Failed to create branch: {e}")
+                raise
             
             # Create PR as draft (head branch -> base branch)
             pr = self.repo.create_pull(
