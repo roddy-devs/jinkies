@@ -199,14 +199,13 @@ class WebhookListener(commands.Cog):
                 # Extract PR number from URL
                 pr_number = int(pr_url.split('/')[-1])
                 
-                # Assign to Copilot (using a label or comment)
+                # Assign to Copilot (using a comment)
                 try:
                     pr = github_service.repo.get_pull(pr_number)
-                    pr.create_issue_comment("@github-copilot Please implement the fix described in the PR description.")
-                    pr.add_to_labels("copilot")
+                    pr.create_issue_comment("@copilot Please implement the fix described in the PR description.")
                     logger.info(f"Assigned PR #{pr_number} to Copilot")
-                except Exception as label_error:
-                    logger.warning(f"Could not add copilot label: {label_error}")
+                except Exception as comment_error:
+                    logger.warning(f"Could not add copilot comment: {comment_error}")
                 
                 self.alert_store.update_github_links(alert.alert_id, pr_url=pr_url)
                 await channel.send(f"✅ {user.mention} Created draft PR and assigned to Copilot: {pr_url}")
