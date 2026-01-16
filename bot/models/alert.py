@@ -91,8 +91,7 @@ class Alert:
     
     def get_django_url(self) -> str:
         """Get URL to view full alert in Django admin."""
-        # TODO: Configure Django admin URL
-        return f"https://admin.nomadicinfluence.com/admin/core/alert/{self.django_alert_id}/"
+        return f"https://api.nomadicinfluence.com/admin/core/alert/{self.django_alert_id}/"
 
 
 @dataclass
