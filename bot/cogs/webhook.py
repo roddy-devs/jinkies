@@ -6,7 +6,7 @@ from discord.ext import commands
 from aiohttp import web
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from bot.config import config
 from bot.services.alert_store import AlertStore
 from bot.models.alert import Alert
@@ -60,6 +60,7 @@ class WebhookListener(commands.Cog):
             
             # Create alert object (only use fields that Alert model accepts)
             alert = Alert(
+                django_alert_id=data.get('alert_id'),  # UUID from Django
                 service_name=data.get('service_name', 'unknown'),
                 exception_type=data.get('exception_type', 'UnknownError'),
                 error_message=data.get('error_message', 'No message'),
@@ -67,9 +68,7 @@ class WebhookListener(commands.Cog):
                 environment=data.get('environment', config.ENVIRONMENT_NAME),
                 request_path=data.get('request_path'),
                 stack_trace=data.get('stack_trace', ''),
-                instance_id=data.get('instance_id'),
-                commit_sha=data.get('commit_sha'),
-                related_logs=data.get('related_logs', []),
+                timestamp=data.get('timestamp', datetime.now(timezone.utc).isoformat()),
                 additional_context=data.get('additional_context', {})
             )
             

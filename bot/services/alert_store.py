@@ -27,16 +27,15 @@ class AlertStore:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS alerts (
                 alert_id TEXT PRIMARY KEY,
+                django_alert_id TEXT NOT NULL,
                 service_name TEXT NOT NULL,
                 exception_type TEXT,
                 error_message TEXT,
                 stack_trace TEXT,
-                related_logs TEXT,
                 request_path TEXT,
                 timestamp TEXT NOT NULL,
+                received_at TEXT NOT NULL,
                 environment TEXT,
-                instance_id TEXT,
-                commit_sha TEXT,
                 acknowledged INTEGER DEFAULT 0,
                 acknowledged_by TEXT,
                 acknowledged_at TEXT,
@@ -49,6 +48,7 @@ class AlertStore:
         """)
         
         # Create indexes for common queries
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_django_alert ON alerts(django_alert_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON alerts(timestamp)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_service ON alerts(service_name)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_severity ON alerts(severity)")
@@ -65,24 +65,22 @@ class AlertStore:
             
             cursor.execute("""
                 INSERT OR REPLACE INTO alerts (
-                    alert_id, service_name, exception_type, error_message,
-                    stack_trace, related_logs, request_path, timestamp,
-                    environment, instance_id, commit_sha, acknowledged,
-                    acknowledged_by, acknowledged_at, github_pr_url,
-                    github_issue_url, severity, additional_context
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    alert_id, django_alert_id, service_name, exception_type, error_message,
+                    stack_trace, request_path, timestamp, received_at,
+                    environment, acknowledged, acknowledged_by, acknowledged_at,
+                    github_pr_url, github_issue_url, severity, additional_context
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 alert.alert_id,
+                alert.django_alert_id,
                 alert.service_name,
                 alert.exception_type,
                 alert.error_message,
                 alert.stack_trace,
-                json.dumps(alert.related_logs),
                 alert.request_path,
                 alert.timestamp,
+                alert.received_at,
                 alert.environment,
-                alert.instance_id,
-                alert.commit_sha,
                 int(alert.acknowledged),
                 alert.acknowledged_by,
                 alert.acknowledged_at,
@@ -227,16 +225,15 @@ class AlertStore:
         """Convert a database row to an Alert object."""
         return Alert(
             alert_id=row["alert_id"],
+            django_alert_id=row["django_alert_id"],
             service_name=row["service_name"],
             exception_type=row["exception_type"] or "",
             error_message=row["error_message"] or "",
             stack_trace=row["stack_trace"] or "",
-            related_logs=json.loads(row["related_logs"]) if row["related_logs"] else [],
             request_path=row["request_path"],
             timestamp=row["timestamp"],
+            received_at=row["received_at"],
             environment=row["environment"] or "",
-            instance_id=row["instance_id"],
-            commit_sha=row["commit_sha"],
             acknowledged=bool(row["acknowledged"]),
             acknowledged_by=row["acknowledged_by"],
             acknowledged_at=row["acknowledged_at"],

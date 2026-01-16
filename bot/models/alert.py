@@ -10,25 +10,35 @@ import json
 
 @dataclass
 class Alert:
-    """Represents an error alert with full context."""
+    """Represents an alert notification from Django."""
     
-    alert_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    # Django alert reference
+    django_alert_id: str  # UUID from Django
+    alert_id: str = field(default_factory=lambda: str(uuid.uuid4()))  # Jinkies internal ID
+    
+    # Minimal alert data for display
     service_name: str = ""
     exception_type: str = ""
     error_message: str = ""
+    severity: str = "ERROR"  # INFO, WARNING, ERROR, CRITICAL
+    
+    # For AI prompt generation
     stack_trace: str = ""
-    related_logs: List[str] = field(default_factory=list)
-    request_path: Optional[str] = None
+    
+    # Metadata
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    received_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     environment: str = ""
-    instance_id: Optional[str] = None
-    commit_sha: Optional[str] = None
+    request_path: Optional[str] = None
+    
+    # Jinkies tracking
     acknowledged: bool = False
     acknowledged_by: Optional[str] = None
     acknowledged_at: Optional[str] = None
     github_pr_url: Optional[str] = None
     github_issue_url: Optional[str] = None
-    severity: str = "ERROR"  # INFO, WARNING, ERROR, CRITICAL
+    
+    # Additional context (stored as JSON)
     additional_context: Dict[str, Any] = field(default_factory=dict)
     
     def to_dict(self) -> Dict[str, Any]:
@@ -76,10 +86,13 @@ class Alert:
     
     def get_trimmed_logs(self, max_lines: int = 10) -> List[str]:
         """Get trimmed related logs for display."""
-        if len(self.related_logs) <= max_lines:
-            return self.related_logs
-        
-        return self.related_logs[:max_lines]
+        # Logs are stored in Django, not here
+        return []
+    
+    def get_django_url(self) -> str:
+        """Get URL to view full alert in Django admin."""
+        # TODO: Configure Django admin URL
+        return f"https://admin.nomadicinfluence.com/admin/core/alert/{self.django_alert_id}/"
 
 
 @dataclass
