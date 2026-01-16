@@ -209,6 +209,22 @@ class WebhookListener(commands.Cog):
                 
                 self.alert_store.update_github_links(alert.alert_id, pr_url=pr_url)
                 await channel.send(f"✅ {user.mention} Created draft PR and assigned to Copilot: {pr_url}")
+                
+                # Also notify in Copilot channel
+                copilot_channel_id = config.DISCORD_COPILOT_CHANNEL_ID
+                if copilot_channel_id:
+                    copilot_channel = self.bot.get_channel(copilot_channel_id)
+                    if copilot_channel:
+                        embed = discord.Embed(
+                            title="🤖 New Copilot PR from Alert",
+                            description=f"Alert: {alert.exception_type}",
+                            color=discord.Color.blue(),
+                            url=pr_url
+                        )
+                        embed.add_field(name="PR", value=f"#{pr_number}", inline=True)
+                        embed.add_field(name="Alert ID", value=alert.get_short_id(), inline=True)
+                        embed.add_field(name="Requested By", value=user.mention, inline=True)
+                        await copilot_channel.send(embed=embed)
             else:
                 await channel.send(f"❌ {user.mention} Failed to create PR. Check bot logs.")
         except Exception as e:

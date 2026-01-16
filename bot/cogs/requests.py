@@ -34,6 +34,14 @@ class RequestCommands(commands.Cog):
         base_branch: Optional[str] = None
     ):
         """Create a PR from a text description using AI."""
+        # Check if command is used in the correct channel
+        if interaction.channel_id != config.DISCORD_COPILOT_CHANNEL_ID:
+            await interaction.response.send_message(
+                format_error_message("This command can only be used in the pull-request channel."),
+                ephemeral=True
+            )
+            return
+        
         if not has_required_role(interaction):
             await interaction.response.send_message(
                 format_error_message("You don't have permission to use this command."),
