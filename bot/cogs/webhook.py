@@ -104,7 +104,6 @@ class WebhookListener(commands.Cog):
             
             # Add reaction emojis for quick actions
             await message.add_reaction('🔧')  # Create PR
-            await message.add_reaction('📝')  # Create Issue
             await message.add_reaction('✅')  # Acknowledge
             
             logger.info(f"Sent alert {alert.get_short_id()} to Discord")
