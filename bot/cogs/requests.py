@@ -112,6 +112,9 @@ BRANCH: [kebab-case-name]
                 draft=True
             )
             
+            # Add Copilot comment
+            pr.create_issue_comment("@copilot Please implement the feature described in the PR description.")
+            
             await interaction.followup.send(format_success_message(f"Created draft PR: {pr.html_url}"))
             
         except Exception as e:
