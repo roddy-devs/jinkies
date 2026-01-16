@@ -46,6 +46,7 @@ class JinkiesBot(commands.Bot):
             "bot.cogs.logs",
             "bot.cogs.alerts",
             "bot.cogs.verification",
+            "bot.cogs.webhook",
         ]
         
         for cog in cogs:
