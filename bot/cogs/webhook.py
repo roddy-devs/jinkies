@@ -104,6 +104,7 @@ class WebhookListener(commands.Cog):
             
             # Add reaction emojis for quick actions
             await message.add_reaction('🔧')  # Create PR
+            await message.add_reaction('🤖')  # Create PR + Assign to Copilot
             await message.add_reaction('✅')  # Acknowledge
             
             logger.info(f"Sent alert {alert.get_short_id()} to Discord")
@@ -156,6 +157,9 @@ class WebhookListener(commands.Cog):
             if emoji == '🔧':
                 # Create PR
                 await self.handle_create_pr_reaction(alert, channel, user)
+            elif emoji == '🤖':
+                # Create PR and assign to Copilot
+                await self.handle_create_pr_with_copilot_reaction(alert, channel, user)
             elif emoji == '📝':
                 # Create Issue
                 await self.handle_create_issue_reaction(alert, channel, user)
@@ -181,6 +185,35 @@ class WebhookListener(commands.Cog):
                 await channel.send(f"❌ {user.mention} Failed to create PR. Check bot logs.")
         except Exception as e:
             logger.error(f"Error creating PR from reaction: {e}")
+            await channel.send(f"❌ {user.mention} Error creating PR: {str(e)}")
+    
+    async def handle_create_pr_with_copilot_reaction(self, alert, channel, user):
+        """Handle PR creation with Copilot assignment from reaction."""
+        from bot.services.github_service import GitHubService
+        
+        try:
+            github_service = GitHubService()
+            pr_url = github_service.create_pr_from_alert(alert)
+            
+            if pr_url:
+                # Extract PR number from URL
+                pr_number = int(pr_url.split('/')[-1])
+                
+                # Assign to Copilot (using a label or comment)
+                try:
+                    pr = github_service.repo.get_pull(pr_number)
+                    pr.create_issue_comment("@github-copilot Please implement the fix described in the PR description.")
+                    pr.add_to_labels("copilot")
+                    logger.info(f"Assigned PR #{pr_number} to Copilot")
+                except Exception as label_error:
+                    logger.warning(f"Could not add copilot label: {label_error}")
+                
+                self.alert_store.update_github_links(alert.alert_id, pr_url=pr_url)
+                await channel.send(f"✅ {user.mention} Created draft PR and assigned to Copilot: {pr_url}")
+            else:
+                await channel.send(f"❌ {user.mention} Failed to create PR. Check bot logs.")
+        except Exception as e:
+            logger.error(f"Error creating PR with Copilot from reaction: {e}")
             await channel.send(f"❌ {user.mention} Error creating PR: {str(e)}")
     
     async def handle_create_issue_reaction(self, alert, channel, user):
