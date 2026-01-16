@@ -279,13 +279,6 @@ The application encountered an unhandled exception.
 """
         
         return body
-`{alert.alert_id}`
-
----
-*This issue was automatically created by the Jinkies monitoring bot.*
-"""
-        
-        return body
     
     def test_connection(self) -> bool:
         """Test GitHub API connection."""
