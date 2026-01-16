@@ -17,6 +17,7 @@ class BotConfig:
     DISCORD_BOT_TOKEN: str = os.getenv("DISCORD_BOT_TOKEN", "")
     DISCORD_ALERT_CHANNEL_ID: int = int(os.getenv("DISCORD_ALERT_CHANNEL_ID", "0"))
     DISCORD_LOG_CHANNEL_ID: int = int(os.getenv("DISCORD_LOG_CHANNEL_ID", "0"))
+    DISCORD_DEPLOY_CHANNEL_ID: int = int(os.getenv("DISCORD_DEPLOY_CHANNEL_ID", "0"))
     DISCORD_ALLOWED_ROLES: List[str] = os.getenv("DISCORD_ALLOWED_ROLES", "Admin,DevOps").split(",")
     
     # GitHub
