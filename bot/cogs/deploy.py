@@ -22,10 +22,12 @@ class DeploymentCommands(commands.Cog):
         self.repo = self.github_client.get_repo(f"{config.GITHUB_REPO_OWNER}/{config.GITHUB_REPO_NAME}")
         self.last_run_id = None
         self.monitor_deployments.start()
+        self.monitor_copilot_prs.start()
     
     def cog_unload(self):
         """Stop monitoring when cog unloads."""
         self.monitor_deployments.cancel()
+        self.monitor_copilot_prs.cancel()
     
     @tasks.loop(minutes=1)
     async def monitor_deployments(self):
@@ -85,8 +87,66 @@ class DeploymentCommands(commands.Cog):
         except Exception as e:
             logger.error(f"Error monitoring deployments: {e}", exc_info=True)
     
+    @tasks.loop(minutes=2)
+    async def monitor_copilot_prs(self):
+        """Monitor PRs for Copilot completion."""
+        try:
+            # Get alert channel for notifications
+            channel_id = config.DISCORD_ALERT_CHANNEL_ID
+            if not channel_id:
+                return
+            
+            channel = self.bot.get_channel(channel_id)
+            if not channel:
+                return
+            
+            # Get open PRs
+            pulls = self.repo.get_pulls(state='open', sort='updated', direction='desc')
+            
+            for pr in pulls[:10]:  # Check last 10 updated PRs
+                # Check if PR has Copilot comment
+                has_copilot_request = False
+                copilot_responded = False
+                
+                for comment in pr.get_issue_comments():
+                    if '@copilot' in comment.body and comment.user.login != 'copilot':
+                        has_copilot_request = True
+                    if comment.user.login == 'copilot':
+                        copilot_responded = True
+                
+                # If Copilot responded and we haven't notified yet
+                if has_copilot_request and copilot_responded:
+                    # Check if we've already notified (using PR labels or reactions)
+                    labels = [label.name for label in pr.labels]
+                    if 'copilot-notified' not in labels:
+                        # Send notification
+                        embed = discord.Embed(
+                            title="🤖 Copilot Completed Implementation",
+                            description=pr.title,
+                            color=discord.Color.green(),
+                            url=pr.html_url
+                        )
+                        embed.add_field(name="PR", value=f"#{pr.number}", inline=True)
+                        embed.add_field(name="Branch", value=pr.head.ref, inline=True)
+                        
+                        await channel.send(embed=embed)
+                        
+                        # Mark as notified
+                        try:
+                            pr.add_to_labels('copilot-notified')
+                        except:
+                            pass  # Label might not exist
+                        
+        except Exception as e:
+            logger.error(f"Error monitoring Copilot PRs: {e}", exc_info=True)
+    
     @monitor_deployments.before_loop
     async def before_monitor(self):
+        """Wait for bot to be ready before monitoring."""
+        await self.bot.wait_until_ready()
+    
+    @monitor_copilot_prs.before_loop
+    async def before_copilot_monitor(self):
         """Wait for bot to be ready before monitoring."""
         await self.bot.wait_until_ready()
     
