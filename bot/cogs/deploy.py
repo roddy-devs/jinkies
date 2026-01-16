@@ -91,8 +91,8 @@ class DeploymentCommands(commands.Cog):
     async def monitor_copilot_prs(self):
         """Monitor PRs for Copilot completion."""
         try:
-            # Get alert channel for notifications
-            channel_id = config.DISCORD_ALERT_CHANNEL_ID
+            # Get copilot channel for notifications
+            channel_id = config.DISCORD_COPILOT_CHANNEL_ID
             if not channel_id:
                 return
             
