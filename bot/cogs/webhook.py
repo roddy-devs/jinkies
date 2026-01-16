@@ -100,11 +100,118 @@ class WebhookListener(commands.Cog):
                 return
             
             embed = create_alert_embed(alert)
-            await channel.send(embed=embed)
+            message = await channel.send(embed=embed)
+            
+            # Add reaction emojis for quick actions
+            await message.add_reaction('🔧')  # Create PR
+            await message.add_reaction('📝')  # Create Issue
+            await message.add_reaction('✅')  # Acknowledge
+            
             logger.info(f"Sent alert {alert.get_short_id()} to Discord")
             
         except Exception as e:
             logger.error(f"Failed to send alert to Discord: {e}")
+    
+    @commands.Cog.listener()
+    async def on_raw_reaction_add(self, payload):
+        """Handle reactions on alert messages."""
+        # Ignore bot's own reactions
+        if payload.user_id == self.bot.user.id:
+            return
+        
+        # Only handle reactions in alert channel
+        if payload.channel_id != config.DISCORD_ALERT_CHANNEL_ID:
+            return
+        
+        try:
+            channel = self.bot.get_channel(payload.channel_id)
+            message = await channel.fetch_message(payload.message_id)
+            
+            # Check if message is from bot and has an embed (alert message)
+            if message.author.id != self.bot.user.id or not message.embeds:
+                return
+            
+            embed = message.embeds[0]
+            
+            # Extract alert ID from embed footer
+            if not embed.footer or not embed.footer.text:
+                return
+            
+            # Parse alert ID from footer (format: "Jinkies ID: xxx | Django ID: yyy")
+            footer_text = embed.footer.text
+            if 'Jinkies ID:' not in footer_text:
+                return
+            
+            jinkies_id = footer_text.split('Jinkies ID:')[1].split('|')[0].strip()
+            
+            # Get alert from database
+            alert = self.alert_store.get_alert(jinkies_id)
+            if not alert:
+                logger.warning(f"Alert {jinkies_id} not found for reaction")
+                return
+            
+            # Handle different reactions
+            emoji = str(payload.emoji)
+            user = await self.bot.fetch_user(payload.user_id)
+            
+            if emoji == '🔧':
+                # Create PR
+                await self.handle_create_pr_reaction(alert, channel, user)
+            elif emoji == '📝':
+                # Create Issue
+                await self.handle_create_issue_reaction(alert, channel, user)
+            elif emoji == '✅':
+                # Acknowledge
+                await self.handle_acknowledge_reaction(alert, channel, user)
+                
+        except Exception as e:
+            logger.error(f"Error handling reaction: {e}", exc_info=True)
+    
+    async def handle_create_pr_reaction(self, alert, channel, user):
+        """Handle PR creation from reaction."""
+        from bot.services.github_service import GitHubService
+        
+        try:
+            github_service = GitHubService()
+            pr_url = github_service.create_pr_from_alert(alert)
+            
+            if pr_url:
+                self.alert_store.update_github_links(alert.alert_id, pr_url=pr_url)
+                await channel.send(f"✅ {user.mention} Created draft PR: {pr_url}")
+            else:
+                await channel.send(f"❌ {user.mention} Failed to create PR. Check bot logs.")
+        except Exception as e:
+            logger.error(f"Error creating PR from reaction: {e}")
+            await channel.send(f"❌ {user.mention} Error creating PR: {str(e)}")
+    
+    async def handle_create_issue_reaction(self, alert, channel, user):
+        """Handle issue creation from reaction."""
+        from bot.services.github_service import GitHubService
+        
+        try:
+            github_service = GitHubService()
+            issue_url = github_service.create_issue_from_alert(alert)
+            
+            if issue_url:
+                self.alert_store.update_github_links(alert.alert_id, issue_url=issue_url)
+                await channel.send(f"✅ {user.mention} Created issue: {issue_url}")
+            else:
+                await channel.send(f"❌ {user.mention} Failed to create issue. Check bot logs.")
+        except Exception as e:
+            logger.error(f"Error creating issue from reaction: {e}")
+            await channel.send(f"❌ {user.mention} Error creating issue: {str(e)}")
+    
+    async def handle_acknowledge_reaction(self, alert, channel, user):
+        """Handle alert acknowledgment from reaction."""
+        try:
+            success = self.alert_store.acknowledge_alert(alert.alert_id, str(user))
+            if success:
+                await channel.send(f"✅ {user.mention} Acknowledged alert {alert.get_short_id()}")
+            else:
+                await channel.send(f"❌ {user.mention} Failed to acknowledge alert.")
+        except Exception as e:
+            logger.error(f"Error acknowledging alert from reaction: {e}")
+            await channel.send(f"❌ {user.mention} Error: {str(e)}")
 
 
 async def setup(bot):
