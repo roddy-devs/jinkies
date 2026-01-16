@@ -48,6 +48,7 @@ class JinkiesBot(commands.Bot):
             "bot.cogs.verification",
             "bot.cogs.webhook",
             "bot.cogs.deploy",
+            "bot.cogs.requests",
         ]
         
         for cog in cogs:
