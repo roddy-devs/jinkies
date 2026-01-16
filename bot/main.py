@@ -78,6 +78,20 @@ class JinkiesBot(commands.Bot):
         
         logger.info("Bot is ready!")
     
+    async def on_member_join(self, member):
+        """Auto-assign Nomad role when someone joins."""
+        try:
+            guild = member.guild
+            nomad_role = discord.utils.get(guild.roles, name="Nomad")
+            
+            if nomad_role:
+                await member.add_roles(nomad_role)
+                logger.info(f"Assigned Nomad role to {member.name} ({member.id})")
+            else:
+                logger.warning(f"Nomad role not found in {guild.name}")
+        except Exception as e:
+            logger.error(f"Failed to assign Nomad role to {member.name}: {e}")
+    
     async def on_command_error(self, ctx, error):
         """Handle command errors."""
         logger.error(f"Command error: {error}")
