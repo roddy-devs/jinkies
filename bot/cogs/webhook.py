@@ -10,7 +10,7 @@ from datetime import datetime
 from bot.config import config
 from bot.services.alert_store import AlertStore
 from bot.models.alert import Alert
-from bot.utils.discord_helpers import format_alert_embed
+from bot.utils.discord_helpers import create_alert_embed
 
 logger = logging.getLogger("jinkies.webhook")
 
@@ -101,7 +101,7 @@ class WebhookListener(commands.Cog):
                 logger.error(f"Alert channel {config.DISCORD_ALERT_CHANNEL_ID} not found")
                 return
             
-            embed = format_alert_embed(alert)
+            embed = create_alert_embed(alert)
             await channel.send(embed=embed)
             logger.info(f"Sent alert {alert.get_short_id()} to Discord")
             
