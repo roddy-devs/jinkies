@@ -92,11 +92,14 @@ class WebhookListener(commands.Cog):
             }, status=500)
     
     async def send_to_discord(self, alert: Alert):
-        """Send alert to Discord channel."""
+        """Send alert to Discord channel based on environment."""
         try:
-            channel = self.bot.get_channel(config.DISCORD_ALERT_CHANNEL_ID)
+            # Get the appropriate channel based on alert environment
+            channel_id = config.get_alert_channel_id(alert.environment)
+            channel = self.bot.get_channel(channel_id)
+            
             if not channel:
-                logger.error(f"Alert channel {config.DISCORD_ALERT_CHANNEL_ID} not found")
+                logger.error(f"Alert channel {channel_id} not found for environment {alert.environment}")
                 return
             
             embed = create_alert_embed(alert)
@@ -107,7 +110,7 @@ class WebhookListener(commands.Cog):
             await message.add_reaction('🤖')  # Create PR + Assign to Copilot
             await message.add_reaction('✅')  # Acknowledge
             
-            logger.info(f"Sent alert {alert.get_short_id()} to Discord")
+            logger.info(f"Sent alert {alert.get_short_id()} to Discord ({alert.environment})")
             
         except Exception as e:
             logger.error(f"Failed to send alert to Discord: {e}")

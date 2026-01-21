@@ -16,6 +16,7 @@ class BotConfig:
     # Discord
     DISCORD_BOT_TOKEN: str = os.getenv("DISCORD_BOT_TOKEN", "")
     DISCORD_ALERT_CHANNEL_ID: int = int(os.getenv("DISCORD_ALERT_CHANNEL_ID", "0"))
+    DISCORD_ALERT_CHANNEL_DEV_ID: int = int(os.getenv("DISCORD_ALERT_CHANNEL_DEV_ID", "0"))
     DISCORD_LOG_CHANNEL_ID: int = int(os.getenv("DISCORD_LOG_CHANNEL_ID", "0"))
     DISCORD_DEPLOY_CHANNEL_ID: int = int(os.getenv("DISCORD_DEPLOY_CHANNEL_ID", "0"))
     DISCORD_COPILOT_CHANNEL_ID: int = int(os.getenv("DISCORD_COPILOT_CHANNEL_ID", "0"))
@@ -71,6 +72,26 @@ class BotConfig:
             errors.append("GITHUB_REPO_NAME is required")
         
         return errors
+    
+    @classmethod
+    def get_alert_channel_id(cls, environment: str = None) -> int:
+        """Get the appropriate alert channel ID based on environment."""
+        env = environment or cls.ENVIRONMENT_NAME
+        
+        if env.lower() in ["development", "dev", "local"]:
+            return cls.DISCORD_ALERT_CHANNEL_DEV_ID or cls.DISCORD_ALERT_CHANNEL_ID
+        
+        return cls.DISCORD_ALERT_CHANNEL_ID
+    
+    @classmethod
+    def get_alert_channel_id(cls, environment: str = None) -> int:
+        """Get the appropriate alert channel ID based on environment."""
+        env = environment or cls.ENVIRONMENT_NAME
+        
+        if env.lower() in ["development", "dev", "local"]:
+            return cls.DISCORD_ALERT_CHANNEL_DEV_ID or cls.DISCORD_ALERT_CHANNEL_ID
+        
+        return cls.DISCORD_ALERT_CHANNEL_ID
     
     @classmethod
     def get_log_group_for_service(cls, service: str) -> Optional[str]:
