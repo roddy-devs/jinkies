@@ -5,10 +5,13 @@ import discord
 from discord.ext import commands, tasks
 from discord import app_commands
 import logging
+import asyncio
 from typing import Optional
 from github import Github
 from bot.config import config
 from bot.utils.discord_helpers import has_required_role
+from bot.services.deploy_executor import DeploymentExecutor
+from bot.services.deployment_store import DeploymentStore, Deployment
 
 logger = logging.getLogger("jinkies.deploy")
 
@@ -21,6 +24,23 @@ class DeploymentCommands(commands.Cog):
         self.github_client = Github(config.GITHUB_PRIVATE_KEY)
         self.repo = self.github_client.get_repo(f"{config.GITHUB_REPO_OWNER}/{config.GITHUB_REPO_NAME}")
         self.last_run_id = None
+        
+        # Initialize deployment store
+        self.deployment_store = DeploymentStore("deployments.db")
+        
+        # Initialize deployment executor if configured
+        self.executor = None
+        if hasattr(config, 'DEPLOY_REPO_PATH') and hasattr(config, 'DEPLOY_SSH_KEY'):
+            self.executor = DeploymentExecutor(
+                repo_path=config.DEPLOY_REPO_PATH,
+                ssh_key_path=config.DEPLOY_SSH_KEY,
+                ec2_host=config.DEPLOY_EC2_HOST,
+                ec2_user=getattr(config, 'DEPLOY_EC2_USER', 'ubuntu')
+            )
+            logger.info("Deployment executor initialized")
+        else:
+            logger.warning("Deployment executor not configured - will use GitHub Actions only")
+        
         self.monitor_deployments.start()
         self.monitor_copilot_prs.start()
     
@@ -150,18 +170,204 @@ class DeploymentCommands(commands.Cog):
         """Wait for bot to be ready before monitoring."""
         await self.bot.wait_until_ready()
     
-    @app_commands.command(name="deploy", description="Trigger a deployment")
+    @app_commands.command(name="deploy", description="Deploy develop branch to production")
     @app_commands.describe(
-        ref="Branch name or commit hash to deploy",
-        environment="Environment to deploy to (default: production)"
+        method="Deployment method: 'direct' (run locally) or 'github' (GitHub Actions)"
     )
     async def deploy(
         self,
         interaction: discord.Interaction,
-        ref: str,
-        environment: Optional[str] = "production"
+        method: Optional[str] = None
     ):
-        """Trigger a deployment via GitHub Actions."""
+        """Trigger a deployment via direct execution or GitHub Actions."""
+        # Defer immediately to avoid timeout
+        await interaction.response.defer()
+        
+        if not has_required_role(interaction):
+            await interaction.followup.send(
+                "❌ Error: You don't have permission to use this command.",
+                ephemeral=True
+            )
+            return
+        
+        # Always deploy develop
+        ref = "develop"
+        method = method or "direct"
+        
+        # Get deploy channel
+        deploy_channel_id = config.DISCORD_DEPLOY_CHANNEL_ID
+        deploy_channel = self.bot.get_channel(deploy_channel_id) if deploy_channel_id else None
+        
+        # Create temporary deployment channel
+        temp_channel = None
+        category_id = 1461209527729786890
+        category = self.bot.get_channel(category_id)
+        
+        try:
+            if method == "direct" and self.executor:
+                # Create deployment record
+                deployment = Deployment(
+                    branch=ref,
+                    triggered_by=f"{interaction.user.name}#{interaction.user.discriminator}",
+                    status="in_progress",
+                    method="direct"
+                )
+                deployment_id = self.deployment_store.save_deployment(deployment)
+                deployment.id = deployment_id
+                
+                # Create temporary channel for this deployment
+                if category:
+                    import datetime
+                    timestamp = datetime.datetime.now().strftime("%H%M%S")
+                    temp_channel = await category.create_text_channel(
+                        name=f"deploy-{ref}-{timestamp}",
+                        topic=f"Deployment #{deployment_id} of {ref} by {interaction.user.name}"
+                    )
+                    deployment.discord_channel_id = str(temp_channel.id)
+                    self.deployment_store.update_deployment(deployment)
+                
+                # Direct deployment execution
+                embed = discord.Embed(
+                    title="🚀 Deployment Started",
+                    description=f"Deploying `{ref}` directly...",
+                    color=discord.Color.blue()
+                )
+                embed.add_field(name="Triggered By", value=interaction.user.mention, inline=True)
+                embed.add_field(name="Method", value="Direct Execution", inline=True)
+                if temp_channel:
+                    embed.add_field(name="Logs", value=temp_channel.mention, inline=True)
+                embed.set_footer(text="This may take 5-10 minutes...")
+                
+                await interaction.followup.send(embed=embed)
+                
+                # Post to deploy channel
+                if deploy_channel:
+                    await deploy_channel.send(
+                        f"🚀 {interaction.user.mention} started deployment of `{ref}`",
+                        embed=embed
+                    )
+                
+                # Execute deployment
+                result = await self.executor.deploy(branch=ref)
+                
+                # Update deployment record
+                from datetime import datetime
+                deployment.completed_at = datetime.utcnow()
+                deployment.duration_seconds = int((deployment.completed_at - deployment.started_at).total_seconds())
+                deployment.output_logs = result.get("output", "")
+                deployment.frontend_deployed = True  # Assume both deployed if successful
+                deployment.backend_deployed = True
+                
+                if result["success"]:
+                    deployment.status = "success"
+                    
+                    # Extract CloudFront invalidation ID from logs
+                    if "Invalidation created:" in deployment.output_logs:
+                        import re
+                        match = re.search(r'Invalidation created: ([A-Z0-9]+)', deployment.output_logs)
+                        if match:
+                            deployment.cloudfront_invalidation_id = match.group(1)
+                    
+                    self.deployment_store.update_deployment(deployment)
+                    success_embed = discord.Embed(
+                        title="✅ Deployment Successful",
+                        description=f"Successfully deployed `{ref}`",
+                        color=discord.Color.green()
+                    )
+                    success_embed.add_field(name="Deployment ID", value=f"#{deployment.id}", inline=True)
+                    success_embed.add_field(name="Branch", value=ref, inline=True)
+                    success_embed.add_field(name="Duration", value=f"{deployment.duration_seconds}s", inline=True)
+                    success_embed.add_field(name="Triggered By", value=interaction.user.mention, inline=True)
+                    
+                    await interaction.followup.send(embed=success_embed)
+                    
+                    # Post success to deploy channel
+                    if deploy_channel:
+                        await deploy_channel.send(
+                            f"✅ Deployment of `{ref}` completed successfully",
+                            embed=success_embed
+                        )
+                    
+                    # Post full logs to temporary channel
+                    if temp_channel:
+                        output = result["output"]
+                        if output:
+                            log_chunks = [output[i:i+1900] for i in range(0, len(output), 1900)]
+                            for chunk in log_chunks[:10]:  # Max 10 chunks
+                                await temp_channel.send(f"```\n{chunk}\n```")
+                        
+                        # Delete channel after 30 seconds
+                        await asyncio.sleep(30)
+                        await temp_channel.delete(reason="Deployment completed successfully")
+                else:
+                    deployment.status = "failed"
+                    deployment.error_message = result.get("error", "Unknown error")
+                    self.deployment_store.update_deployment(deployment)
+                    
+                    error_embed = discord.Embed(
+                        title="❌ Deployment Failed",
+                        description=f"Failed to deploy `{ref}`",
+                        color=discord.Color.red()
+                    )
+                    error_embed.add_field(name="Error", value=f"```\n{result['error'][:1000]}\n```", inline=False)
+                    if temp_channel:
+                        error_embed.add_field(name="Logs", value=f"Check {temp_channel.mention} for details", inline=False)
+                    
+                    await interaction.followup.send(embed=error_embed)
+                    
+                    # Post error to deploy channel
+                    if deploy_channel:
+                        await deploy_channel.send(
+                            f"❌ Deployment of `{ref}` failed",
+                            embed=error_embed
+                        )
+                    
+                    # Post error logs to temporary channel (keep it for debugging)
+                    if temp_channel:
+                        await temp_channel.send(f"**Error:**\n```\n{result['error']}\n```")
+                    
+            elif method == "github":
+                # GitHub Actions deployment
+                workflow = self.repo.get_workflow("deploy.yml")
+                success = workflow.create_dispatch(
+                    ref=ref,
+                    inputs={}
+                )
+                
+                if success:
+                    embed = discord.Embed(
+                        title="🚀 Deployment Triggered",
+                        description=f"Deploying `{ref}` via GitHub Actions",
+                        color=discord.Color.blue()
+                    )
+                    embed.add_field(name="Triggered By", value=interaction.user.mention, inline=True)
+                    embed.add_field(name="Method", value="GitHub Actions", inline=True)
+                    embed.set_footer(text="Check deployment status in the deploy channel")
+                    
+                    await interaction.followup.send(embed=embed)
+                    
+                    if deploy_channel:
+                        await deploy_channel.send(
+                            f"🚀 {interaction.user.mention} triggered GitHub Actions deployment of `{ref}`"
+                        )
+                else:
+                    await interaction.followup.send("❌ Failed to trigger GitHub Actions deployment.")
+            else:
+                await interaction.followup.send(
+                    "❌ Direct deployment not configured. Use `method='github'` for GitHub Actions."
+                )
+                
+        except Exception as e:
+            logger.error(f"Error triggering deployment: {e}", exc_info=True)
+            error_msg = f"❌ Error: {str(e)}"
+            await interaction.followup.send(error_msg)
+            if deploy_channel:
+                await deploy_channel.send(error_msg)
+            # Keep temp channel on error for debugging
+    
+    @app_commands.command(name="deploy-status", description="Check deployment status")
+    async def deploy_status(self, interaction: discord.Interaction):
+        """Check current deployment status on production."""
         if not has_required_role(interaction):
             await interaction.response.send_message(
                 "❌ Error: You don't have permission to use this command.",
@@ -172,36 +378,42 @@ class DeploymentCommands(commands.Cog):
         await interaction.response.defer()
         
         try:
-            # Trigger workflow dispatch
-            workflow = self.repo.get_workflow("deploy.yml")
-            success = workflow.create_dispatch(
-                ref=ref,
-                inputs={"environment": environment}
-            )
+            if not self.executor:
+                await interaction.followup.send("❌ Direct deployment not configured.")
+                return
             
-            if success:
+            status = await self.executor.get_deployment_status()
+            
+            if "error" in status:
                 embed = discord.Embed(
-                    title="🚀 Deployment Triggered",
-                    description=f"Deploying `{ref}` to **{environment}**",
-                    color=discord.Color.blue()
+                    title="❌ Error Getting Status",
+                    description=status["error"],
+                    color=discord.Color.red()
                 )
-                embed.add_field(name="Triggered By", value=interaction.user.mention, inline=True)
-                embed.add_field(name="Repository", value=f"{config.GITHUB_REPO_OWNER}/{config.GITHUB_REPO_NAME}", inline=True)
-                embed.set_footer(text="Check deployment status in the deploy channel")
-                
-                await interaction.followup.send(embed=embed)
-                
-                # Also post to deploy channel
-                deploy_channel_id = config.DISCORD_DEPLOY_CHANNEL_ID
-                if deploy_channel_id:
-                    deploy_channel = self.bot.get_channel(deploy_channel_id)
-                    if deploy_channel:
-                        await deploy_channel.send(f"🚀 {interaction.user.mention} triggered deployment of `{ref}` to **{environment}**")
             else:
-                await interaction.followup.send("❌ Failed to trigger deployment. Check bot logs.")
+                color = discord.Color.green() if status.get("is_running") else discord.Color.orange()
+                embed = discord.Embed(
+                    title="📊 Deployment Status",
+                    color=color
+                )
                 
+                embed.add_field(
+                    name="Service Status",
+                    value="🟢 Running" if status.get("is_running") else "🔴 Stopped",
+                    inline=True
+                )
+                
+                if "last_commit" in status:
+                    commit = status["last_commit"]
+                    embed.add_field(name="Last Commit", value=f"`{commit['hash']}`", inline=True)
+                    embed.add_field(name="Author", value=commit["author"], inline=True)
+                    embed.add_field(name="Time", value=commit["time_ago"], inline=True)
+                    embed.add_field(name="Message", value=commit["message"], inline=False)
+            
+            await interaction.followup.send(embed=embed)
+            
         except Exception as e:
-            logger.error(f"Error triggering deployment: {e}", exc_info=True)
+            logger.error(f"Error getting deployment status: {e}", exc_info=True)
             await interaction.followup.send(f"❌ Error: {str(e)}")
 
 
