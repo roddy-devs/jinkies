@@ -2,12 +2,9 @@
 Django views for Jinkies webhook integration.
 """
 import json
-import asyncio
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
-import aiohttp
-from discord import Webhook
 
 # Import Jinkies components
 import sys
@@ -18,7 +15,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from bot.models.alert import Alert
 from bot.services.alert_store import AlertStore
 from bot.config import config
-from bot.utils.discord_helpers import create_alert_embed
 
 
 # Initialize alert store
@@ -36,10 +32,12 @@ def health(request):
 @require_http_methods(["POST"])
 def receive_alert(request):
     """
-    Receive alert from Django application and forward to Discord.
+    Receive alert from Django application.
     
     This endpoint receives alerts from your Django app's logging handler
-    and stores them in the Jinkies alert database, then forwards to Discord.
+    and stores them in the Jinkies alert database.
+    
+    Note: This is deprecated. Use direct API calls to Jinkies instead.
     
     Expected JSON payload:
     {
@@ -76,12 +74,6 @@ def receive_alert(request):
         # Save alert to store
         alert_store.save_alert(alert)
         
-        # Post to Discord (run in background)
-        try:
-            asyncio.run(post_alert_to_discord(alert))
-        except Exception as e:
-            print(f"Error posting to Discord: {e}")
-        
         return JsonResponse({
             "status": "success",
             "alert_id": alert.alert_id
@@ -92,28 +84,3 @@ def receive_alert(request):
             "status": "error",
             "message": str(e)
         }, status=500)
-
-
-async def post_alert_to_discord(alert: Alert):
-    """
-    Post alert to Discord via webhook.
-    
-    Uses Discord webhook to send alert without requiring the bot to be running.
-    The webhook URL should be configured in your Discord channel settings.
-    """
-    try:
-        # Get webhook URL from environment
-        webhook_url = os.getenv("DISCORD_WEBHOOK_URL", "")
-        
-        if not webhook_url:
-            print("DISCORD_WEBHOOK_URL not configured")
-            return
-        
-        async with aiohttp.ClientSession() as session:
-            webhook = Webhook.from_url(webhook_url, session=session)
-            embed = create_alert_embed(alert)
-            await webhook.send(embed=embed)
-            print(f"Alert {alert.get_short_id()} sent to Discord")
-    
-    except Exception as e:
-        print(f"Error posting alert to Discord: {e}")
