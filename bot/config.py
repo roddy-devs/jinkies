@@ -32,6 +32,10 @@ class BotConfig:
     # OpenAI (Optional - for AI-generated fix prompts)
     OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
     
+    # Django Admin URLs
+    DJANGO_ADMIN_URL_PROD: str = os.getenv("DJANGO_ADMIN_URL_PROD", "https://api.nomadicinfluence.com")
+    DJANGO_ADMIN_URL_DEV: str = os.getenv("DJANGO_ADMIN_URL_DEV", "http://localhost:8000")
+    
     # AWS
     AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")
     AWS_ACCESS_KEY_ID: Optional[str] = os.getenv("AWS_ACCESS_KEY_ID")

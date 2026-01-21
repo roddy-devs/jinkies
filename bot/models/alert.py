@@ -90,8 +90,11 @@ class Alert:
         return []
     
     def get_django_url(self) -> str:
-        """Get URL to view full alert in Django admin."""
-        return f"https://api.nomadicinfluence.com/admin/core/alert/{self.django_alert_id}/"
+        """Get URL to view full alert in Django admin based on environment."""
+        from bot.config import config
+        
+        base_url = config.DJANGO_ADMIN_URL_DEV if self.environment.lower() in ["development", "dev", "local"] else config.DJANGO_ADMIN_URL_PROD
+        return f"{base_url}/admin/core/alert/{self.django_alert_id}/"
 
 
 @dataclass
