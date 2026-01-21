@@ -19,6 +19,7 @@ class NomadCRUD(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.api_base = config.NOMADIC_API_URL
+        self.headers = {"X-API-Key": config.NOMADIC_API_KEY}
     
     # ==================== USER COMMANDS ====================
     
@@ -43,7 +44,7 @@ class NomadCRUD(commands.Cog):
         try:
             # Search by email or ID
             params = {"email": email} if email else {"id": user_id}
-            response = requests.get(f"{self.api_base}/admin/users/", params=params, timeout=10)
+            response = requests.get(f"{self.api_base}/admin/users/", params=params, headers=self.headers, timeout=10)
             
             if response.status_code == 200:
                 user = response.json()
@@ -92,7 +93,7 @@ class NomadCRUD(commands.Cog):
             response = requests.patch(
                 f"{self.api_base}/admin/users/{email}/",
                 json=data,
-                timeout=10
+                timeout=10, headers=self.headers
             )
             
             if response.status_code == 200:
@@ -111,7 +112,7 @@ class NomadCRUD(commands.Cog):
         await interaction.response.defer()
         
         try:
-            response = requests.delete(f"{self.api_base}/admin/users/{email}/", timeout=10)
+            response = requests.delete(f"{self.api_base}/admin/users/{email}/", headers=self.headers, timeout=10)
             
             if response.status_code == 204:
                 await interaction.followup.send(f"✅ User `{email}` deleted successfully")
@@ -131,7 +132,7 @@ class NomadCRUD(commands.Cog):
         await interaction.response.defer()
         
         try:
-            response = requests.get(f"{self.api_base}/admin/businesses/{business_id}/", timeout=10)
+            response = requests.get(f"{self.api_base}/admin/businesses/{business_id}/", headers=self.headers, timeout=10)
             
             if response.status_code == 200:
                 business = response.json()
@@ -177,7 +178,7 @@ class NomadCRUD(commands.Cog):
             response = requests.patch(
                 f"{self.api_base}/admin/businesses/{business_id}/",
                 json=data,
-                timeout=10
+                timeout=10, headers=self.headers
             )
             
             if response.status_code == 200:
@@ -196,7 +197,7 @@ class NomadCRUD(commands.Cog):
         await interaction.response.defer()
         
         try:
-            response = requests.delete(f"{self.api_base}/admin/businesses/{business_id}/", timeout=10)
+            response = requests.delete(f"{self.api_base}/admin/businesses/{business_id}/", headers=self.headers, timeout=10)
             
             if response.status_code == 204:
                 await interaction.followup.send(f"✅ Business deleted successfully")
@@ -216,7 +217,7 @@ class NomadCRUD(commands.Cog):
         await interaction.response.defer()
         
         try:
-            response = requests.get(f"{self.api_base}/admin/creator-profiles/{profile_id}/", timeout=10)
+            response = requests.get(f"{self.api_base}/admin/creator-profiles/{profile_id}/", headers=self.headers, timeout=10)
             
             if response.status_code == 200:
                 profile = response.json()
@@ -266,7 +267,7 @@ class NomadCRUD(commands.Cog):
             response = requests.patch(
                 f"{self.api_base}/admin/creator-profiles/{profile_id}/",
                 json=data,
-                timeout=10
+                timeout=10, headers=self.headers
             )
             
             if response.status_code == 200:
@@ -285,7 +286,7 @@ class NomadCRUD(commands.Cog):
         await interaction.response.defer()
         
         try:
-            response = requests.delete(f"{self.api_base}/admin/creator-profiles/{profile_id}/", timeout=10)
+            response = requests.delete(f"{self.api_base}/admin/creator-profiles/{profile_id}/", headers=self.headers, timeout=10)
             
             if response.status_code == 204:
                 await interaction.followup.send(f"✅ Creator profile deleted successfully")

@@ -36,6 +36,10 @@ class BotConfig:
     DJANGO_ADMIN_URL_PROD: str = os.getenv("DJANGO_ADMIN_URL_PROD", "https://api.nomadicinfluence.com")
     DJANGO_ADMIN_URL_DEV: str = os.getenv("DJANGO_ADMIN_URL_DEV", "http://localhost:8000")
     
+    # Nomadic Influence API
+    NOMADIC_API_URL: str = os.getenv("NOMADIC_API_URL", "https://api.nomadicinfluence.com/api")
+    NOMADIC_API_KEY: str = os.getenv("NOMADIC_API_KEY", "")
+    
     # AWS
     AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")
     AWS_ACCESS_KEY_ID: Optional[str] = os.getenv("AWS_ACCESS_KEY_ID")
